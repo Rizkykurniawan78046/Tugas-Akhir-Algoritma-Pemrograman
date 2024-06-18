@@ -1,0 +1,253 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+
+// Struktur data untuk menyimpan informasi pengguna ATM
+struct User {
+    char acc_number[11];    // No rekening (10 digit + '\0')
+    char pin[7];            // PIN (6 digit + '\0')
+    double saldo;           // Saldo
+    int wrong_pin_attempts; // Jumlah percobaan PIN salah
+    bool locked;            // Status terkunci atau tidak
+    char nama[50];          // Nama pengguna
+};
+
+// Array untuk menyimpan data pengguna ATM
+struct User database[] = {
+    {"1234567890", "123456", 10000000, 0, false, "Budiono Siregar"},
+    {"0987654321", "654321", 5000000, 0, false, "Acok Ganteng"}
+};
+
+int num_users = sizeof(database) / sizeof(database[0]); // Jumlah pengguna dalam database
+
+// Deklarasi fungsi-fungsi
+int login();
+void cek_saldo(int user_index);
+void tarik_tunai(int user_index);
+void setor_tunai(int user_index);
+void transfer(int user_index);
+void handle_wrong_pin(int user_index);
+void clear_screen();
+void pause_and_clear();
+void menu_kembali_selesai(int user_index);
+
+// Fungsi utama
+int main() {
+    printf("=== ATM BANK RISKY BERKAH SEJAHTERA ===\n");
+
+    int user_index = login();
+    if (user_index == -1) {
+        printf("Login gagal. Program berhenti.\n");
+        return 1;
+    }
+
+    while (true) {
+        if (database[user_index].locked) {
+            printf("ATM terkunci karena Anda telah salah memasukkan PIN sebanyak 3 kali.\n");
+            printf("Silahkan menghubungi admin Bank Risky Berkah Sejahtera.\n");
+            break;
+        }
+
+        clear_screen(); // Bersihkan layar sebelum menampilkan menu
+        printf("\n=== Menu ATM ===\n");
+        printf("1. Cek Saldo\n");
+        printf("2. Tarik Tunai\n");
+        printf("3. Setor Tunai\n");
+        printf("4. Transfer\n");
+        printf("5. Keluar\n");
+
+        int pilihan;
+        printf("Silakan pilih menu (1/2/3/4/5): ");
+        scanf("%d", &pilihan);
+
+        clear_screen(); // Bersihkan layar setelah memilih menu
+
+        switch (pilihan) {
+            case 1:
+                cek_saldo(user_index);
+                break;
+            case 2:
+                tarik_tunai(user_index);
+                break;
+            case 3:
+                setor_tunai(user_index);
+                break;
+            case 4:
+                transfer(user_index);
+                break;
+            case 5:
+                printf("Terima kasih telah menggunakan ATM.\n");
+                return 0;
+            default:
+                printf("Pilihan tidak valid. Silakan coba lagi.\n");
+                break;
+        }
+    }
+
+    return 0;
+}
+
+// Fungsi untuk login ke ATM
+int login() {
+    char pin[7];
+
+    for (int attempt = 0; attempt < 3; attempt++) {
+        printf("Masukkan PIN Anda : ");
+        scanf("%6s", pin); // Membaca maksimal 6 karakter untuk PIN
+
+        for (int i = 0; i < num_users; ++i) {
+            if (strcmp(database[i].pin, pin) == 0) {
+                printf("Login berhasil.\n");
+                database[i].wrong_pin_attempts = 0; // Reset percobaan PIN salah
+                return i;  // Mengembalikan indeks pengguna yang berhasil login
+            }
+        }
+
+        printf("PIN salah.\n", attempt + 1);
+    }
+
+    // Jika sampai di sini, berarti sudah 3 kali salah memasukkan PIN
+    for (int i = 0; i < num_users; ++i) {
+        database[i].locked = true;
+    }
+
+    printf("ATM terkunci karena Anda telah salah memasukkan PIN sebanyak 3 kali.\n");
+    printf("Silahkan menghubungi admin Bank Risky Berkah Sejahtera.\n");
+    return -1;  // Mengembalikan nilai -1 jika login gagal
+}
+
+// Fungsi untuk menangani percobaan PIN salah
+void handle_wrong_pin(int user_index) {
+    database[user_index].wrong_pin_attempts++;
+    printf("PIN salah. Percobaan ke-%d dari 3.\n", database[user_index].wrong_pin_attempts);
+
+    if (database[user_index].wrong_pin_attempts >= 3) {
+        printf("ATM terkunci karena Anda telah salah memasukkan PIN sebanyak 3 kali.\n");
+        printf("Silahkan menghubungi admin Bank Risky Berkah Sejahtera.\n");
+        database[user_index].locked = true;
+    }
+}
+
+// Fungsi untuk cek saldo
+void cek_saldo(int user_index) {
+    printf("Saldo Anda saat ini adalah Rp %.2f\n", database[user_index].saldo);
+    menu_kembali_selesai(user_index);
+}
+
+// Fungsi untuk tarik tunai
+void tarik_tunai(int user_index) {
+    if (database[user_index].locked) {
+        printf("ATM terkunci. Tidak dapat melakukan transaksi.\n");
+        return;
+    }
+
+    double nominal;
+    printf("Masukkan nominal yang ingin ditarik: ");
+    scanf("%lf", &nominal);
+
+    if (nominal > database[user_index].saldo) {
+        printf("Saldo Anda tidak mencukupi.\n");
+    } else {
+        database[user_index].saldo -= nominal;
+        printf("Anda telah melakukan penarikan sebesar Rp %.2f\n", nominal);
+        cek_saldo(user_index);
+    }
+    menu_kembali_selesai(user_index);
+}
+
+// Fungsi untuk setor tunai
+void setor_tunai(int user_index) {
+    if (database[user_index].locked) {
+        printf("ATM terkunci. Tidak dapat melakukan transaksi.\n");
+        return;
+    }
+
+    double nominal;
+    printf("Masukkan nominal yang ingin disetor: ");
+    scanf("%lf", &nominal);
+
+    database[user_index].saldo += nominal;
+    printf("Anda telah melakukan penyetoran sebesar Rp %.2f\n", nominal);
+    cek_saldo(user_index);
+    menu_kembali_selesai(user_index);
+}
+
+// Fungsi untuk transfer
+void transfer(int user_index) {
+    if (database[user_index].locked) {
+        printf("ATM terkunci. Tidak dapat melakukan transaksi.\n");
+        return;
+    }
+
+    char target_acc_number[11];
+    double amount;
+
+    printf("Masukkan nomor rekening tujuan (10 digit): ");
+    scanf("%10s", target_acc_number);
+
+    // Cari nomor rekening tujuan dalam database
+    int target_index = -1;
+    for (int i = 0; i < num_users; ++i) {
+        if (strcmp(database[i].acc_number, target_acc_number) == 0) {
+            target_index = i;
+            break;
+        }
+    }
+
+    if (target_index == -1) {
+        printf("Mohon maaf, rekening tidak ditemukan.\n");
+        menu_kembali_selesai(user_index);
+        return;
+    }
+
+    printf("Nama penerima: %s\n", database[target_index].nama);
+
+    printf("Masukkan jumlah yang ingin Anda transfer: ");
+    scanf("%lf", &amount);
+
+    if (amount > database[user_index].saldo) {
+        printf("Saldo Anda tidak mencukupi untuk melakukan transfer sebesar itu.\n");
+    } else {
+        database[user_index].saldo -= amount;
+        database[target_index].saldo += amount;
+        printf("Transfer berhasil.\n");
+        cek_saldo(user_index);
+    }
+    menu_kembali_selesai(user_index);
+}
+
+// Fungsi untuk membersihkan layar
+void clear_screen() {
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
+// Fungsi untuk menunggu dan membersihkan layar
+void pause_and_clear() {
+    printf("\nTekan Enter untuk melanjutkan...");
+    while (getchar() != '\n'); // Tunggu hingga pengguna menekan Enter
+    getchar(); // Menangkap Enter kedua jika buffer masih memiliki karakter
+    clear_screen(); // Bersihkan layar
+}
+
+// Fungsi untuk menampilkan menu kembali atau selesai
+void menu_kembali_selesai(int user_index) {
+    int pilihan;
+    printf("\n1. Kembali ke Menu\n");
+    printf("2. Selesai\n");
+    printf("Pilih opsi (1/2): ");
+    scanf("%d", &pilihan);
+
+    if (pilihan == 2) {
+        printf("Terima kasih telah menggunakan ATM.\n");
+        exit(0);
+    } else {
+        pause_and_clear();
+    }
+}
+//Nama: Risky Kurniawan
+//NIM: 12250512796
